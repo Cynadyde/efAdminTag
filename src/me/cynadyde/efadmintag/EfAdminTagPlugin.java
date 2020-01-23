@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 /**
  * The main class of the plugin.
  */
+@SuppressWarnings("WeakerAccess")
 public class EfAdminTagPlugin extends JavaPlugin {
 
     private static final String CHAT_TAG;
@@ -60,9 +61,18 @@ public class EfAdminTagPlugin extends JavaPlugin {
             sendMessage(sender, "&cYou must be a player to use that command!");
             return false;
         }
-        Player player = (Player) sender;
-        User user = luckPermsApi.getUserManager().getUser(player.getUniqueId());
+        return toggleAdminTag((Player) sender);
+    }
 
+    /**
+     * Attempts to toggle the admin tag of the given player, looking at
+     * only the left-most staff group they are a member of, if at all.
+     *
+     * @return true if the operation succeeded
+     */
+    public boolean toggleAdminTag(Player player) {
+
+        User user = luckPermsApi.getUserManager().getUser(player.getUniqueId());
         if (user == null) {
             sendMessage(player, "&cYou are not in the permissions system...");
             return false;
@@ -71,23 +81,61 @@ public class EfAdminTagPlugin extends JavaPlugin {
         String hiddenGroup = getUserHiddenGroupTag(user);
 
         /*
-         * If the user has admintag disabled and then their staff rank changes,
+         * If the user has admin-tag disabled and then their staff rank changes,
          * they would have a group AND an inaccurate hiddenGroup. Checking group
          * first, with getUserStaffMembership() returning the left-most group
-         * (ordered highest to lowest), resolves this issue.
+         * (ordered highest to lowest), avoids any issues caused by this.
          */
 
-        // disable admin tag
+        // DISABLE ADMIN TAG...
         if (group != null) {
-            return doToggleAdminTag(player, user, group, false).wasSuccessful();
+            if (setUserMembership(user, group, false).wasSuccessful()
+                    && setUserHiddenGroupTag(user, group).wasSuccessful()) {
+
+                if (OP_GROUPS.contains(group)) {
+                    player.setOp(false);
+                }
+                sendMessage(player, "&aRemoving Admin Tag");
+                luckPermsApi.getUserManager().saveUser(user);
+
+                getLogger().info(String.format(
+                        "toggling off %s %s's tag",
+                        group, player.getName()));
+                return true;
+            }
+            else {
+                getLogger().warning(String.format(
+                        "unable to toggle off %s %s's tag",
+                        group, player.getName()));
+                return false;
+            }
         }
-        // enable admin tag
+        // ENABLE ADMIN TAG...
         else if (hiddenGroup != null) {
-            return doToggleAdminTag(player, user, hiddenGroup, true).wasSuccessful();
+            if (setUserMembership(user, hiddenGroup, true).wasSuccessful()
+                    && setUserHiddenGroupTag(user, null).wasSuccessful()) {
+
+                if (OP_GROUPS.contains(hiddenGroup)) {
+                    player.setOp(true);
+                }
+                sendMessage(player, "&aAdding Admin Tag");
+                luckPermsApi.getUserManager().saveUser(user);
+
+                getLogger().info(String.format(
+                        "toggling on %s %s's tag",
+                        hiddenGroup, player.getName()));
+                return true;
+            }
+            else {
+                getLogger().warning(String.format(
+                        "unable to toggle on %s %s's tag",
+                        hiddenGroup, player.getName()));
+                return false;
+            }
         }
-        // no permission
+        // NO PERMISSION...
         else {
-            sendMessage(sender, "&cYou do not have permission to do that!");
+            sendMessage(player, "&cYou do not have permission to do that!");
             return false;
         }
     }
@@ -96,7 +144,7 @@ public class EfAdminTagPlugin extends JavaPlugin {
      * Formats the given message with '&' to {@link ChatColor} and {@link String#format},
      * prefixes it with the plugin's chat tag, and sends it to the given command sender.
      */
-    private void sendMessage(@NotNull CommandSender sender, @NotNull String message, @Nullable Object... objects) {
+    private static void sendMessage(@NotNull CommandSender sender, @NotNull String message, @Nullable Object... objects) {
 
         sender.sendMessage(CHAT_TAG + String.format(ChatColor.translateAlternateColorCodes('&', message), objects));
     }
@@ -177,49 +225,6 @@ public class EfAdminTagPlugin extends JavaPlugin {
         }
         else {
             return DataMutateResult.SUCCESS;
-        }
-    }
-
-    /**
-     * Toggles the given player/user's admintag for the given group to the given state.
-     */
-    private DataMutateResult doToggleAdminTag(@NotNull Player player, @NotNull User user, @NotNull String group, boolean doEnable) {
-
-        if (doEnable) {
-            if (setUserMembership(user, group, true).wasSuccessful()
-                    && setUserHiddenGroupTag(user, null).wasSuccessful()) {
-
-                if (OP_GROUPS.contains(group)) {
-                    player.setOp(true);
-                }
-                getLogger().info(String.format("toggling on %s %s's tag", group, player.getName()));
-                sendMessage(player, "&aAdding Admin Tag");
-
-                luckPermsApi.getUserManager().saveUser(user);
-                return DataMutateResult.SUCCESS;
-            }
-            else {
-                getLogger().warning(String.format("unable to toggle on %s %s's tag", group, player.getName()));
-                return DataMutateResult.FAIL;
-            }
-        }
-        else {
-            if (setUserMembership(user, group, false).wasSuccessful()
-                    && setUserHiddenGroupTag(user, group).wasSuccessful()) {
-
-                if (OP_GROUPS.contains(group)) {
-                    player.setOp(false);
-                }
-                getLogger().info(String.format("toggling off %s %s's tag", group, player.getName()));
-                sendMessage(player, "&aRemoving Admin Tag");
-
-                luckPermsApi.getUserManager().saveUser(user);
-                return DataMutateResult.SUCCESS;
-            }
-            else {
-                getLogger().warning(String.format("unable to toggle off %s %s's tag", group, player.getName()));
-                return DataMutateResult.FAIL;
-            }
         }
     }
 }

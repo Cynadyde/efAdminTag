@@ -1,9 +1,8 @@
 name: efAdminTag
-version: 1.0.0
+version: 1.0.1
 main: me.cynadyde.efadmintag.EfAdminTagPlugin
 description: Allows staff to toggle their staff permissions.
-authors:
-  - Cynadyde
+author: Cynadyde
 depend:
   - LuckPerms
 commands:
