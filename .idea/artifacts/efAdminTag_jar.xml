@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="efAdminTag:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/efAdminTag_jar</output-path>
+    <root id="archive" name="efAdminTag.jar">
+      <element id="module-output" name="efAdminTag" />
+    </root>
+  </artifact>
+</component>
